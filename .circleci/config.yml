@@ -1,18 +1,29 @@
 version: 2
 jobs:
   build:
+    working_directory: ~/angular-cli-circleci
     docker:
       - image: circleci/node:7.10-browsers
-    working_directory: ~/repo
     steps:
       - checkout
       - restore_cache:
-          keys:
-          - v1-dependencies-{{ checksum "package.json" }}
-          - v1-dependencies-
-      - run: npm install
+          key: dependencies-{{ checksum "package.json" }}
+      - run: 
+          name: Install
+          command: npm install
       - save_cache:
+          key: dependencies-{{ checksum "package.json" }}
           paths:
-            - node_modules
-          key: v1-dependencies-{{ checksum "package.json" }}
-      - run: karma start ./karma.conf.js --single-run
+            - ./node_modules
+      - run:
+          name: Build
+          command: npm run ng build -- --aot --prod
+      - run:
+          name: Deploy
+          command: |
+            apt-get -y -qq update
+            apt-get -y -qq install python3.4-dev
+            curl -O https://bootstrap.pypa.io/get-pip.py
+            python3.4 get-pip.py --user
+            pip install awscli --upgrade --user
+            aws s3 sync dist s3://angular-sandbox/ --include "*" --acl public-read --cache-control "max-age=3600" --delete
